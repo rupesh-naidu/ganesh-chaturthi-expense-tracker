@@ -1,10 +1,12 @@
 ﻿import React, { useState } from "react";
 import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-dom";
+import { AuthProvider } from "./context/AuthContext";
 import { TransactionProvider } from "./context/TransactionContext";
 import Navbar from "./components/Navbar";
 import ToastContainer from "./components/ToastContainer";
 import DashboardPage from "./pages/DashboardPage";
 import TransactionsPage from "./pages/TransactionsPage";
+import LoginPage from "./pages/LoginPage";
 import TransactionModal from "./components/TransactionModal";
 
 function AppContent() {
@@ -15,7 +17,7 @@ function AppContent() {
       {/* Dynamic Toast Notifications */}
       <ToastContainer />
 
-      {/* Navbar with Role Switcher & Modal trigger */}
+      {/* Navbar with Role & Auth Actions */}
       <Navbar onOpenAddModal={() => setIsNavAddModalOpen(true)} />
 
       {/* Main App Container */}
@@ -23,11 +25,12 @@ function AppContent() {
         <Routes>
           <Route path="/" element={<DashboardPage />} />
           <Route path="/transactions" element={<TransactionsPage />} />
+          <Route path="/login" element={<LoginPage />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </main>
 
-      {/* Global Add Modal (triggered from Navbar on desktop) */}
+      {/* Global Add Modal */}
       <TransactionModal
         isOpen={isNavAddModalOpen}
         onClose={() => setIsNavAddModalOpen(false)}
@@ -50,10 +53,12 @@ function AppContent() {
 
 export default function App() {
   return (
-    <TransactionProvider>
-      <Router>
-        <AppContent />
-      </Router>
-    </TransactionProvider>
+    <AuthProvider>
+      <TransactionProvider>
+        <Router>
+          <AppContent />
+        </Router>
+      </TransactionProvider>
+    </AuthProvider>
   );
 }

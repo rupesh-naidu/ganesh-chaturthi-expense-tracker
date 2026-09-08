@@ -1,16 +1,22 @@
 ﻿import React, { createContext, useContext, useState, useEffect, useMemo, useCallback } from "react";
 import { supabase, isSupabaseConfigured } from "../lib/supabaseClient";
+import { useAuth } from "./AuthContext";
 import { INITIAL_TRANSACTIONS } from "../mock/mockData";
 import { formatINR } from "../utils/formatters";
 
 const TransactionContext = createContext(null);
 
 export function TransactionProvider({ children }) {
+  const { user, role: authRole } = useAuth();
+
   const [transactions, setTransactions] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [role, setRole] = useState("admin"); // Can be toggled or driven by auth
+  const [demoRole, setDemoRole] = useState("admin"); // Fallback toggle when not logged in
   const [toasts, setToasts] = useState([]);
+
+  // Determine effective role
+  const role = user ? authRole : demoRole;
 
   // Toast System
   const addToast = useCallback((toast) => {
@@ -31,7 +37,6 @@ export function TransactionProvider({ children }) {
     setError(null);
 
     if (!isSupabaseConfigured || !supabase) {
-      console.warn("Supabase credentials not detected; using initial data.");
       setTransactions(INITIAL_TRANSACTIONS);
       setIsLoading(false);
       return;
@@ -49,18 +54,74 @@ export function TransactionProvider({ children }) {
     } catch (err) {
       console.error("Error fetching transactions:", err);
       setError(err.message || "Failed to load transactions.");
-      // Fallback to initial transactions on network error
       setTransactions(INITIAL_TRANSACTIONS);
     } finally {
       setIsLoading(false);
     }
   }, []);
 
+  // Initial Fetch on mount
   useEffect(() => {
     fetchTransactions();
   }, [fetchTransactions]);
 
-  // Derived Financial Metrics (Never manually entered or stored)
+  // Supabase Realtime Listener (Phase 6)
+  useEffect(() => {
+    if (!isSupabaseConfigured || !supabase) return;
+
+    const channel = supabase
+      .channel("public:transactions-realtime")
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "transactions" },
+        (payload) => {
+          if (payload.eventType === "INSERT") {
+            const newRow = payload.new;
+            setTransactions((prev) => {
+              if (prev.some((t) => t.id === newRow.id)) return prev;
+              return [newRow, ...prev];
+            });
+
+            // Live toast on connected devices
+            if (newRow.type === "donation") {
+              addToast({
+                type: "donation",
+                title: "🟢 New Donation",
+                message: `${newRow.name} donated ${formatINR(newRow.amount)}`,
+                subMessage: "Thank you for the contribution! 🙏",
+              });
+            } else if (newRow.type === "expense") {
+              addToast({
+                type: "expense",
+                title: "🔴 New Expense",
+                message: `${newRow.name} spent ${formatINR(newRow.amount)}`,
+                subMessage: newRow.description,
+              });
+            }
+          } else if (payload.eventType === "UPDATE") {
+            const updatedRow = payload.new;
+            setTransactions((prev) =>
+              prev.map((t) => (t.id === updatedRow.id ? updatedRow : t))
+            );
+          } else if (payload.eventType === "DELETE") {
+            const deletedId = payload.old?.id;
+            if (deletedId) {
+              setTransactions((prev) => prev.filter((t) => t.id !== deletedId));
+            } else {
+              // Re-sync on delete if replica identity was not set
+              fetchTransactions();
+            }
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [addToast, fetchTransactions]);
+
+  // Strictly Derived Financial Metrics (NEVER manually edited or stored)
   const { totalDonations, totalExpenses, currentHolding } = useMemo(() => {
     let donations = 0;
     let expenses = 0;
@@ -99,7 +160,7 @@ export function TransactionProvider({ children }) {
       throw new Error("Please enter a valid amount greater than 0.");
     }
 
-    // Client-side quick check
+    // Client-side quick balance check
     if (data.type === "expense" && amount > currentHolding) {
       throw new Error(`Insufficient funds. Current holding is ${formatINR(currentHolding)}.`);
     }
@@ -110,6 +171,7 @@ export function TransactionProvider({ children }) {
         name: data.name.trim(),
         amount: amount,
         description: data.description.trim(),
+        created_by: user?.id || null,
       };
 
       const { data: newRow, error: insertErr } = await supabase
@@ -122,9 +184,12 @@ export function TransactionProvider({ children }) {
         throw new Error(insertErr.message || "Database failed to save transaction.");
       }
 
-      setTransactions((prev) => [newRow, ...prev]);
+      // Optimistically ensure in state if realtime has latency
+      setTransactions((prev) => {
+        if (prev.some((t) => t.id === newRow.id)) return prev;
+        return [newRow, ...prev];
+      });
 
-      // Show Toast
       if (newRow.type === "donation") {
         addToast({
           type: "donation",
@@ -143,7 +208,6 @@ export function TransactionProvider({ children }) {
 
       return newRow;
     } else {
-      // Offline / Local mock fallback
       const localRow = {
         id: `tx-${Date.now()}`,
         type: data.type,
@@ -175,6 +239,7 @@ export function TransactionProvider({ children }) {
         amount: amount,
         description: updatedData.description.trim(),
         updated_at: new Date().toISOString(),
+        updated_by: user?.id || null,
       };
 
       const { data: updatedRow, error: updateErr } = await supabase
@@ -243,7 +308,7 @@ export function TransactionProvider({ children }) {
   };
 
   const toggleRole = () => {
-    setRole((prev) => (prev === "admin" ? "viewer" : "admin"));
+    setDemoRole((prev) => (prev === "admin" ? "viewer" : "admin"));
   };
 
   return (
@@ -253,7 +318,6 @@ export function TransactionProvider({ children }) {
         isLoading,
         error,
         role,
-        setRole,
         toggleRole,
         totalDonations,
         totalExpenses,
