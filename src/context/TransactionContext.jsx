@@ -1,29 +1,66 @@
-﻿import React, { createContext, useContext, useState, useMemo } from "react";
+﻿import React, { createContext, useContext, useState, useEffect, useMemo, useCallback } from "react";
+import { supabase, isSupabaseConfigured } from "../lib/supabaseClient";
 import { INITIAL_TRANSACTIONS } from "../mock/mockData";
 import { formatINR } from "../utils/formatters";
 
 const TransactionContext = createContext(null);
 
 export function TransactionProvider({ children }) {
-  const [transactions, setTransactions] = useState(INITIAL_TRANSACTIONS);
-  const [role, setRole] = useState("admin"); // "admin" or "viewer"
+  const [transactions, setTransactions] = useState([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [role, setRole] = useState("admin"); // Can be toggled or driven by auth
   const [toasts, setToasts] = useState([]);
 
-  // Toast Management
-  const addToast = (toast) => {
+  // Toast System
+  const addToast = useCallback((toast) => {
     const id = Date.now() + Math.random().toString(36).substring(2, 7);
-    const newToast = { id, ...toast };
-    setToasts((prev) => [...prev, newToast]);
+    setToasts((prev) => [...prev, { id, ...toast }]);
     setTimeout(() => {
       setToasts((prev) => prev.filter((t) => t.id !== id));
     }, 4500);
-  };
+  }, []);
 
-  const removeToast = (id) => {
+  const removeToast = useCallback((id) => {
     setToasts((prev) => prev.filter((t) => t.id !== id));
-  };
+  }, []);
 
-  // Strictly Derived Financial Metrics (NEVER manually edited)
+  // Fetch Transactions from Supabase
+  const fetchTransactions = useCallback(async () => {
+    setIsLoading(true);
+    setError(null);
+
+    if (!isSupabaseConfigured || !supabase) {
+      console.warn("Supabase credentials not detected; using initial data.");
+      setTransactions(INITIAL_TRANSACTIONS);
+      setIsLoading(false);
+      return;
+    }
+
+    try {
+      const { data, error: fetchErr } = await supabase
+        .from("transactions")
+        .select("*")
+        .order("created_at", { ascending: false });
+
+      if (fetchErr) throw fetchErr;
+
+      setTransactions(data || []);
+    } catch (err) {
+      console.error("Error fetching transactions:", err);
+      setError(err.message || "Failed to load transactions.");
+      // Fallback to initial transactions on network error
+      setTransactions(INITIAL_TRANSACTIONS);
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchTransactions();
+  }, [fetchTransactions]);
+
+  // Derived Financial Metrics (Never manually entered or stored)
   const { totalDonations, totalExpenses, currentHolding } = useMemo(() => {
     let donations = 0;
     let expenses = 0;
@@ -44,17 +81,17 @@ export function TransactionProvider({ children }) {
     };
   }, [transactions]);
 
-  // Recent 5 Transactions ordered by created_at DESC
+  // Latest 5 Transactions
   const recentTransactions = useMemo(() => {
     return [...transactions]
       .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
       .slice(0, 5);
   }, [transactions]);
 
-  // Add Transaction with Expense Protection
-  const addTransaction = (data) => {
+  // Add Transaction
+  const addTransaction = async (data) => {
     if (role !== "admin") {
-      throw new Error("Unauthorized: Viewers cannot create transactions.");
+      throw new Error("Unauthorized: Only Admins can record transactions.");
     }
 
     const amount = Number(data.amount);
@@ -62,46 +99,68 @@ export function TransactionProvider({ children }) {
       throw new Error("Please enter a valid amount greater than 0.");
     }
 
-    // Expense protection: forbid negative balance
+    // Client-side quick check
     if (data.type === "expense" && amount > currentHolding) {
       throw new Error(`Insufficient funds. Current holding is ${formatINR(currentHolding)}.`);
     }
 
-    const newTx = {
-      id: `tx-${Date.now()}`,
-      type: data.type,
-      name: data.name.trim(),
-      amount: amount,
-      description: data.description.trim(),
-      created_at: new Date().toISOString(),
-    };
+    if (isSupabaseConfigured && supabase) {
+      const payload = {
+        type: data.type,
+        name: data.name.trim(),
+        amount: amount,
+        description: data.description.trim(),
+      };
 
-    setTransactions((prev) => [newTx, ...prev]);
+      const { data: newRow, error: insertErr } = await supabase
+        .from("transactions")
+        .insert([payload])
+        .select()
+        .single();
 
-    // Visually appealing toast notification
-    if (newTx.type === "donation") {
-      addToast({
-        type: "donation",
-        title: "🟢 New Donation",
-        message: `${newTx.name} donated ${formatINR(newTx.amount)}`,
-        subMessage: "Thank you for the contribution! 🙏",
-      });
+      if (insertErr) {
+        throw new Error(insertErr.message || "Database failed to save transaction.");
+      }
+
+      setTransactions((prev) => [newRow, ...prev]);
+
+      // Show Toast
+      if (newRow.type === "donation") {
+        addToast({
+          type: "donation",
+          title: "🟢 New Donation",
+          message: `${newRow.name} donated ${formatINR(newRow.amount)}`,
+          subMessage: "Thank you for the contribution! 🙏",
+        });
+      } else {
+        addToast({
+          type: "expense",
+          title: "🔴 New Expense",
+          message: `${newRow.name} spent ${formatINR(newRow.amount)}`,
+          subMessage: newRow.description,
+        });
+      }
+
+      return newRow;
     } else {
-      addToast({
-        type: "expense",
-        title: "🔴 New Expense",
-        message: `${newTx.name} spent ${formatINR(newTx.amount)}`,
-        subMessage: newTx.description,
-      });
+      // Offline / Local mock fallback
+      const localRow = {
+        id: `tx-${Date.now()}`,
+        type: data.type,
+        name: data.name.trim(),
+        amount: amount,
+        description: data.description.trim(),
+        created_at: new Date().toISOString(),
+      };
+      setTransactions((prev) => [localRow, ...prev]);
+      return localRow;
     }
-
-    return newTx;
   };
 
-  // Edit Transaction with Financial Integrity & Balance Validation
-  const updateTransaction = (id, updatedData) => {
+  // Update Transaction
+  const updateTransaction = async (id, updatedData) => {
     if (role !== "admin") {
-      throw new Error("Unauthorized: Viewers cannot edit transactions.");
+      throw new Error("Unauthorized: Only Admins can edit transactions.");
     }
 
     const amount = Number(updatedData.amount);
@@ -109,74 +168,78 @@ export function TransactionProvider({ children }) {
       throw new Error("Please enter a valid amount greater than 0.");
     }
 
-    // Calculate hypothetical balance if this edit is applied
-    let hypDonations = 0;
-    let hypExpenses = 0;
+    if (isSupabaseConfigured && supabase) {
+      const payload = {
+        type: updatedData.type,
+        name: updatedData.name.trim(),
+        amount: amount,
+        description: updatedData.description.trim(),
+        updated_at: new Date().toISOString(),
+      };
 
-    for (const t of transactions) {
-      if (t.id === id) {
-        if (updatedData.type === "donation") hypDonations += amount;
-        else hypExpenses += amount;
-      } else {
-        if (t.type === "donation") hypDonations += Number(t.amount);
-        else hypExpenses += Number(t.amount);
+      const { data: updatedRow, error: updateErr } = await supabase
+        .from("transactions")
+        .update(payload)
+        .eq("id", id)
+        .select()
+        .single();
+
+      if (updateErr) {
+        throw new Error(updateErr.message || "Database failed to update transaction.");
       }
-    }
 
-    if (hypDonations - hypExpenses < 0) {
-      throw new Error(
-        `Insufficient funds. This change would result in a negative holding balance (${formatINR(hypDonations - hypExpenses)}).`
+      setTransactions((prev) =>
+        prev.map((t) => (t.id === id ? updatedRow : t))
+      );
+
+      addToast({
+        type: "info",
+        title: "Transaction Updated",
+        message: `Updated record for ${updatedData.name}`,
+      });
+
+      return updatedRow;
+    } else {
+      setTransactions((prev) =>
+        prev.map((t) =>
+          t.id === id
+            ? { ...t, ...updatedData, amount, updated_at: new Date().toISOString() }
+            : t
+        )
       );
     }
-
-    setTransactions((prev) =>
-      prev.map((t) =>
-        t.id === id
-          ? {
-              ...t,
-              type: updatedData.type,
-              name: updatedData.name.trim(),
-              amount: amount,
-              description: updatedData.description.trim(),
-              updated_at: new Date().toISOString(),
-            }
-          : t
-      )
-    );
-
-    addToast({
-      type: "info",
-      title: "Transaction Updated",
-      message: `Updated record for ${updatedData.name}`,
-    });
   };
 
-  // Delete Transaction with Negative Balance Prevention
-  const deleteTransaction = (id) => {
+  // Delete Transaction
+  const deleteTransaction = async (id) => {
     if (role !== "admin") {
-      throw new Error("Unauthorized: Viewers cannot delete transactions.");
+      throw new Error("Unauthorized: Only Admins can delete transactions.");
     }
 
     const targetTx = transactions.find((t) => t.id === id);
-    if (!targetTx) return;
 
-    // If deleting a donation, ensure remaining donations cover total expenses
-    if (targetTx.type === "donation") {
-      const remainingDonations = totalDonations - Number(targetTx.amount);
-      if (remainingDonations < totalExpenses) {
-        throw new Error(
-          `Cannot delete this donation. Current expenses (${formatINR(totalExpenses)}) would exceed the remaining funds (${formatINR(remainingDonations)}).`
-        );
+    if (isSupabaseConfigured && supabase) {
+      const { error: deleteErr } = await supabase
+        .from("transactions")
+        .delete()
+        .eq("id", id);
+
+      if (deleteErr) {
+        throw new Error(deleteErr.message || "Database failed to delete transaction.");
       }
+
+      setTransactions((prev) => prev.filter((t) => t.id !== id));
+
+      if (targetTx) {
+        addToast({
+          type: "info",
+          title: "Transaction Removed",
+          message: `Deleted record of ${formatINR(targetTx.amount)}`,
+        });
+      }
+    } else {
+      setTransactions((prev) => prev.filter((t) => t.id !== id));
     }
-
-    setTransactions((prev) => prev.filter((t) => t.id !== id));
-
-    addToast({
-      type: "info",
-      title: "Transaction Removed",
-      message: `Deleted transaction of ${formatINR(targetTx.amount)}`,
-    });
   };
 
   const toggleRole = () => {
@@ -187,6 +250,8 @@ export function TransactionProvider({ children }) {
     <TransactionContext.Provider
       value={{
         transactions,
+        isLoading,
+        error,
         role,
         setRole,
         toggleRole,
@@ -194,6 +259,7 @@ export function TransactionProvider({ children }) {
         totalExpenses,
         currentHolding,
         recentTransactions,
+        fetchTransactions,
         addTransaction,
         updateTransaction,
         deleteTransaction,

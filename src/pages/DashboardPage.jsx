@@ -4,22 +4,36 @@ import CurrentHoldingCard from "../components/CurrentHoldingCard";
 import StatCards from "../components/StatCards";
 import RecentActivity from "../components/RecentActivity";
 import TransactionModal from "../components/TransactionModal";
-import { Plus, Shield, Sparkles } from "lucide-react";
+import DashboardSkeleton from "../components/DashboardSkeleton";
+import { Plus, Sparkles, RefreshCw } from "lucide-react";
 
 export default function DashboardPage() {
-  const { role } = useTransactions();
+  const { role, isLoading, fetchTransactions } = useTransactions();
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
 
+  if (isLoading) {
+    return <DashboardSkeleton />;
+  }
+
   return (
-    <div className="space-y-6 pb-20 sm:pb-8">
+    <div className="space-y-6 pb-20 sm:pb-8 animate-fade-in">
       {/* Subtle Festive Banner Sub-header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 bg-gradient-to-r from-amber-100/70 via-orange-100/60 to-amber-100/70 border border-amber-200/80 rounded-2xl px-4 py-2.5">
         <div className="flex items-center gap-2 text-xs font-bold text-orange-950">
           <span className="text-base">🚩</span>
           <span>श्री गणेशाय नमः • Ganesh Chaturthi Celebration Ledger</span>
         </div>
-        <div className="text-[11px] font-semibold text-orange-800">
-          Active Mode: <strong className="uppercase">{role}</strong>
+        <div className="flex items-center gap-3 text-[11px] font-semibold text-orange-800">
+          <button
+            onClick={() => fetchTransactions()}
+            className="flex items-center gap-1 hover:text-orange-950 transition-colors"
+            title="Refresh transactions from Supabase"
+          >
+            <RefreshCw className="w-3 h-3" />
+            <span>Sync</span>
+          </button>
+          <span>•</span>
+          <span>Active Role: <strong className="uppercase">{role}</strong></span>
         </div>
       </div>
 
@@ -29,7 +43,7 @@ export default function DashboardPage() {
       {/* 2. Total Donations & Total Money Spent Cards */}
       <StatCards />
 
-      {/* 3. Action Section for ADMIN (Prompt Section 5: For ADMIN: [ + ADD TRANSACTION ] / For VIEWER: Do not display) */}
+      {/* 3. Action Section for ADMIN */}
       {role === "admin" && (
         <div className="flex justify-center sm:justify-start">
           <button

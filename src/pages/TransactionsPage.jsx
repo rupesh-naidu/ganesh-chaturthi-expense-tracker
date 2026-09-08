@@ -12,11 +12,11 @@ import {
   ArrowDownLeft,
   ArrowUpRight,
   Calendar,
-  Sparkles,
+  RefreshCw,
 } from "lucide-react";
 
 export default function TransactionsPage() {
-  const { transactions, role } = useTransactions();
+  const { transactions, role, isLoading, fetchTransactions } = useTransactions();
 
   const [filterType, setFilterType] = useState("all"); // "all" | "donations" | "expenses"
   const [searchQuery, setSearchQuery] = useState("");
@@ -30,11 +30,9 @@ export default function TransactionsPage() {
   const filteredTransactions = useMemo(() => {
     return transactions
       .filter((tx) => {
-        // Type filter
         if (filterType === "donations" && tx.type !== "donation") return false;
         if (filterType === "expenses" && tx.type !== "expense") return false;
 
-        // Search filter (name or description)
         if (searchQuery.trim()) {
           const query = searchQuery.toLowerCase().trim();
           const matchName = tx.name.toLowerCase().includes(query);
@@ -47,7 +45,6 @@ export default function TransactionsPage() {
       .sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
   }, [transactions, filterType, searchQuery]);
 
-  // Formats date nicely e.g. "Sep 8, 2026"
   const formatTxDate = (dateStr) => {
     if (!dateStr) return "";
     return new Date(dateStr).toLocaleDateString("en-IN", {
@@ -58,7 +55,7 @@ export default function TransactionsPage() {
   };
 
   return (
-    <div className="space-y-6 pb-20 sm:pb-8">
+    <div className="space-y-6 pb-20 sm:pb-8 animate-fade-in">
       {/* Top Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
@@ -73,16 +70,25 @@ export default function TransactionsPage() {
           </p>
         </div>
 
-        {/* Admin Add Transaction Button */}
-        {role === "admin" && (
+        <div className="flex items-center gap-2">
           <button
-            onClick={() => setIsAddModalOpen(true)}
-            className="flex items-center justify-center gap-1.5 bg-gradient-to-r from-orange-600 to-amber-600 hover:from-orange-700 hover:to-amber-700 text-white font-bold px-4 py-2.5 rounded-xl text-xs shadow-festive active:scale-95 transition-all"
+            onClick={() => fetchTransactions()}
+            className="p-2.5 rounded-xl border border-gray-200 bg-white text-gray-600 hover:text-orange-600 transition-colors shadow-sm"
+            title="Refresh transactions"
           >
-            <Plus className="w-4 h-4 stroke-[2.5]" />
-            <span>+ Add Transaction</span>
+            <RefreshCw className="w-4 h-4" />
           </button>
-        )}
+
+          {role === "admin" && (
+            <button
+              onClick={() => setIsAddModalOpen(true)}
+              className="flex items-center justify-center gap-1.5 bg-gradient-to-r from-orange-600 to-amber-600 hover:from-orange-700 hover:to-amber-700 text-white font-bold px-4 py-2.5 rounded-xl text-xs shadow-festive active:scale-95 transition-all"
+            >
+              <Plus className="w-4 h-4 stroke-[2.5]" />
+              <span>+ Add Transaction</span>
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Filter and Search Bar Section */}
@@ -136,8 +142,14 @@ export default function TransactionsPage() {
         </div>
       </div>
 
-      {/* Transactions List */}
-      {filteredTransactions.length === 0 ? (
+      {/* Loading Skeleton or Transactions List */}
+      {isLoading ? (
+        <div className="space-y-3 animate-pulse">
+          {[1, 2, 3, 4, 5].map((i) => (
+            <div key={i} className="h-24 bg-white rounded-2xl border border-amber-100 p-4" />
+          ))}
+        </div>
+      ) : filteredTransactions.length === 0 ? (
         <div className="bg-white rounded-3xl p-10 border border-amber-200/70 shadow-festive text-center">
           <div className="text-4xl mb-2">🐘</div>
           <h3 className="text-base font-bold text-gray-800">No transactions found.</h3>
