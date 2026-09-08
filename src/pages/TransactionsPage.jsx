@@ -1,4 +1,4 @@
-﻿import React, { useState, useMemo } from "react";
+import React, { useState, useMemo } from "react";
 import { useTransactions } from "../context/TransactionContext";
 import { formatINR } from "../utils/formatters";
 import TransactionModal from "../components/TransactionModal";
@@ -16,7 +16,7 @@ import {
 } from "lucide-react";
 
 export default function TransactionsPage() {
-  const { transactions, role, isLoading, fetchTransactions } = useTransactions();
+  const { transactions, role, canManageFinance, isLoading, fetchTransactions } = useTransactions();
 
   const [filterType, setFilterType] = useState("all"); // "all" | "donations" | "expenses"
   const [searchQuery, setSearchQuery] = useState("");
@@ -79,7 +79,7 @@ export default function TransactionsPage() {
             <RefreshCw className="w-4 h-4" />
           </button>
 
-          {role === "admin" && (
+          {canManageFinance && (
             <button
               onClick={() => setIsAddModalOpen(true)}
               className="flex items-center justify-center gap-1.5 bg-gradient-to-r from-orange-600 to-amber-600 hover:from-orange-700 hover:to-amber-700 text-white font-bold px-4 py-2.5 rounded-xl text-xs shadow-festive active:scale-95 transition-all"
@@ -223,8 +223,8 @@ export default function TransactionsPage() {
                     </span>
                   </div>
 
-                  {/* ADMIN Controls: [ Edit ] [ Delete ] */}
-                  {role === "admin" && (
+                  {/* ADMIN & COMMITTEE Controls: [ Edit ] [ Delete ] */}
+                  {canManageFinance && (
                     <div className="flex items-center gap-1.5">
                       <button
                         onClick={() => setEditingTransaction(tx)}

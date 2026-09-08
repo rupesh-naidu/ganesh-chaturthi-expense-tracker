@@ -1,10 +1,10 @@
 import React, { useState, useEffect } from "react";
 import { supabase, isSupabaseConfigured } from "../lib/supabaseClient";
 import { useAuth } from "../context/AuthContext";
-import { X, Users, ShieldCheck, UserCheck, Loader2, AlertCircle, RefreshCw } from "lucide-react";
+import { X, Users, ShieldCheck, UserCheck, Loader2, AlertCircle, RefreshCw, Crown, Shield } from "lucide-react";
 
 export default function ManageUsersModal({ isOpen, onClose }) {
-  const { user, fetchProfile } = useAuth();
+  const { user, isAdmin, fetchProfile } = useAuth();
   const [profiles, setProfiles] = useState([]);
   const [loading, setLoading] = useState(true);
   const [updatingId, setUpdatingId] = useState(null);
@@ -25,7 +25,7 @@ export default function ManageUsersModal({ isOpen, onClose }) {
       setProfiles(data || []);
     } catch (err) {
       console.error("Error loading profiles:", err);
-      setError(err.message || "Failed to load registered users.");
+      setError(err.message || "Failed to load registered members.");
     } finally {
       setLoading(false);
     }
@@ -41,7 +41,7 @@ export default function ManageUsersModal({ isOpen, onClose }) {
 
   if (!isOpen) return null;
 
-  const handleRoleChange = async (targetId, newRole) => {
+  const handleRoleChange = async (targetId, newRole, targetEmail) => {
     setUpdatingId(targetId);
     setError("");
     setSuccess("");
@@ -58,9 +58,12 @@ export default function ManageUsersModal({ isOpen, onClose }) {
         prev.map((p) => (p.id === targetId ? { ...p, role: newRole } : p))
       );
 
-      setSuccess(`Role updated to ${newRole.toUpperCase()} successfully!`);
+      setSuccess(
+        newRole === "committee"
+          ? `Promoted ${targetEmail} to Committee Member! They can now record & edit transactions.`
+          : `Demoted ${targetEmail} to Devotee (Read-only).`
+      );
 
-      // Refresh current user's profile if self updated
       if (targetId === user?.id) {
         await fetchProfile(user.id);
       }
@@ -81,15 +84,15 @@ export default function ManageUsersModal({ isOpen, onClose }) {
         {/* Header */}
         <div className="bg-gradient-to-r from-amber-500/10 via-orange-500/10 to-amber-500/10 border-b border-amber-100 px-6 py-4 flex items-center justify-between">
           <div className="flex items-center gap-2.5">
-            <div className="w-10 h-10 rounded-xl bg-orange-100 text-orange-700 flex items-center justify-center">
-              <Users className="w-5 h-5" />
+            <div className="w-10 h-10 rounded-xl bg-orange-100 text-orange-700 flex items-center justify-center text-xl">
+              👑
             </div>
             <div>
-              <h2 className="text-lg font-extrabold text-gray-900 tracking-tight">
-                Committee Role Management
+              <h2 className="text-lg font-extrabold text-gray-900 tracking-tight flex items-center gap-2">
+                <span>Festival Committee Roles</span>
               </h2>
               <p className="text-xs text-gray-500 font-medium">
-                Grant Admin permissions to authorized committee members
+                Admin controls: Promote Devotees to Committee members
               </p>
             </div>
           </div>
@@ -117,8 +120,27 @@ export default function ManageUsersModal({ isOpen, onClose }) {
             </div>
           )}
 
-          <div className="flex items-center justify-between text-xs text-gray-500 pb-2 border-b border-gray-100">
-            <span>Registered Members ({profiles.length})</span>
+          {/* Role Hierarchy Legend */}
+          <div className="bg-amber-50/70 border border-amber-200/60 rounded-2xl p-3.5 text-xs space-y-1.5 text-gray-700">
+            <div className="font-bold text-orange-950">Role Permissions Guide:</div>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 pt-1 text-[11px]">
+              <div className="bg-white p-2 rounded-xl border border-amber-200">
+                <span className="font-bold text-orange-800 block">👑 ADMIN (You)</span>
+                Full ledger control + promote/demote powers.
+              </div>
+              <div className="bg-white p-2 rounded-xl border border-blue-200">
+                <span className="font-bold text-blue-800 block">🛡️ COMMITTEE</span>
+                Can Add, Edit & Delete all financial records.
+              </div>
+              <div className="bg-white p-2 rounded-xl border border-emerald-200">
+                <span className="font-bold text-emerald-800 block">🙏 DEVOTEE</span>
+                Read-only transparent view of the fund.
+              </div>
+            </div>
+          </div>
+
+          <div className="flex items-center justify-between text-xs text-gray-500 pt-2 pb-1 border-b border-gray-100">
+            <span>Registered Devotees & Committee ({profiles.length})</span>
             <button
               onClick={loadProfiles}
               className="flex items-center gap-1 text-orange-600 hover:text-orange-700 font-bold"
@@ -131,17 +153,19 @@ export default function ManageUsersModal({ isOpen, onClose }) {
           {loading ? (
             <div className="py-12 flex flex-col items-center justify-center gap-2 text-gray-400">
               <Loader2 className="w-6 h-6 animate-spin text-orange-500" />
-              <span className="text-xs font-semibold">Loading committee members...</span>
+              <span className="text-xs font-semibold">Loading members...</span>
             </div>
           ) : profiles.length === 0 ? (
             <div className="py-10 text-center text-gray-400 text-xs">
-              No registered profiles found in database.
+              No registered profiles found yet.
             </div>
           ) : (
             <div className="divide-y divide-gray-100">
               {profiles.map((p) => {
                 const isSelf = p.id === user?.id;
-                const isAdmin = p.role === "admin";
+                const isUserAdmin = p.role === "admin";
+                const isUserCommittee = p.role === "committee";
+                const isUserDevotee = p.role === "devotee" || !p.role;
                 const isBusy = updatingId === p.id;
 
                 return (
@@ -152,7 +176,7 @@ export default function ManageUsersModal({ isOpen, onClose }) {
                     <div>
                       <div className="flex items-center gap-2 flex-wrap">
                         <span className="text-sm font-bold text-gray-900">
-                          {p.email || "No email provided"}
+                          {p.email || "No email"}
                         </span>
                         {isSelf && (
                           <span className="text-[10px] font-extrabold uppercase px-2 py-0.5 rounded-full bg-amber-100 text-amber-900 border border-amber-200">
@@ -160,34 +184,47 @@ export default function ManageUsersModal({ isOpen, onClose }) {
                           </span>
                         )}
                       </div>
+
+                      {/* Badge */}
                       <span
-                        className={`inline-block text-[11px] font-bold uppercase mt-1 px-2.5 py-0.5 rounded-full border ${
-                          isAdmin
-                            ? "bg-orange-50 border-orange-200 text-orange-800"
-                            : "bg-gray-100 border-gray-200 text-gray-600"
+                        className={`inline-block text-[11px] font-extrabold uppercase mt-1 px-2.5 py-0.5 rounded-full border ${
+                          isUserAdmin
+                            ? "bg-amber-100 border-amber-300 text-amber-900"
+                            : isUserCommittee
+                            ? "bg-blue-50 border-blue-200 text-blue-800"
+                            : "bg-emerald-50 border-emerald-200 text-emerald-800"
                         }`}
                       >
-                        {isAdmin ? "Admin (Full Access)" : "Viewer (Read Only)"}
+                        {isUserAdmin
+                          ? "👑 Admin (Lead)"
+                          : isUserCommittee
+                          ? "🛡️ Committee Member"
+                          : "🙏 Devotee (Registered)"}
                       </span>
                     </div>
 
-                    {/* Role Action Buttons */}
+                    {/* Action buttons (Only for non-admin accounts) */}
                     <div className="flex items-center gap-2">
-                      {isAdmin ? (
+                      {isUserAdmin ? (
+                        <span className="text-xs font-semibold text-amber-800 italic px-2">
+                          Main Organizer
+                        </span>
+                      ) : isUserCommittee ? (
                         <button
-                          onClick={() => handleRoleChange(p.id, "viewer")}
+                          onClick={() => handleRoleChange(p.id, "devotee", p.email)}
                           disabled={isBusy}
-                          className="px-3 py-1.5 rounded-xl border border-gray-200 text-gray-600 hover:bg-gray-100 text-xs font-bold transition-all disabled:opacity-50"
+                          className="px-3.5 py-1.5 rounded-xl border border-gray-200 text-gray-600 hover:bg-rose-50 hover:text-rose-700 hover:border-rose-200 text-xs font-bold transition-all disabled:opacity-50"
                         >
-                          {isBusy ? "Updating..." : "Demote to Viewer"}
+                          {isBusy ? "Updating..." : "Demote to Devotee"}
                         </button>
                       ) : (
                         <button
-                          onClick={() => handleRoleChange(p.id, "admin")}
+                          onClick={() => handleRoleChange(p.id, "committee", p.email)}
                           disabled={isBusy}
-                          className="px-3.5 py-1.5 rounded-xl bg-orange-600 hover:bg-orange-700 text-white text-xs font-bold shadow-festive active:scale-95 transition-all disabled:opacity-50"
+                          className="px-4 py-1.5 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white text-xs font-bold shadow-sm active:scale-95 transition-all disabled:opacity-50 flex items-center gap-1.5"
                         >
-                          {isBusy ? "Updating..." : "Promote to Admin"}
+                          <Shield className="w-3.5 h-3.5" />
+                          <span>{isBusy ? "Promoting..." : "Promote to Committee"}</span>
                         </button>
                       )}
                     </div>

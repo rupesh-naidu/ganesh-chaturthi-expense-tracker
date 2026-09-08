@@ -107,12 +107,19 @@ export default function Navbar({ onOpenAddModal }) {
                     className={`flex items-center gap-1.5 px-2.5 py-1.5 sm:px-3 sm:py-2 rounded-xl text-xs font-bold border shadow-sm ${
                       effectiveRole === "admin"
                         ? "bg-orange-50 border-orange-300 text-orange-800"
+                        : effectiveRole === "committee"
+                        ? "bg-blue-50 border-blue-300 text-blue-800"
                         : "bg-emerald-50 border-emerald-300 text-emerald-800"
                     }`}
                   >
-                    <ShieldCheck className="w-3.5 h-3.5 text-orange-600" />
-                    <span className="hidden sm:inline">Role:</span>
-                    <span className="uppercase">{effectiveRole}</span>
+                    <span>
+                      {effectiveRole === "admin"
+                        ? "👑"
+                        : effectiveRole === "committee"
+                        ? "🛡️"
+                        : "🙏"}
+                    </span>
+                    <span className="hidden sm:inline uppercase">{effectiveRole}</span>
                   </div>
 
                   <button
@@ -127,7 +134,7 @@ export default function Navbar({ onOpenAddModal }) {
                 <div className="flex items-center gap-2">
                   <div className="hidden xs:flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-xs font-bold bg-emerald-50 border border-emerald-200 text-emerald-800">
                     <UserCheck className="w-3.5 h-3.5 text-emerald-600" />
-                    <span>VIEWER</span>
+                    <span>🙏 DEVOTEE</span>
                   </div>
 
                   <Link
@@ -139,7 +146,7 @@ export default function Navbar({ onOpenAddModal }) {
                     }`}
                   >
                     <LogIn className="w-3.5 h-3.5" />
-                    <span>Admin Login</span>
+                    <span>Login</span>
                   </Link>
                 </div>
               )}

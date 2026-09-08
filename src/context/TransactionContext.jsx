@@ -1,4 +1,4 @@
-﻿import React, { createContext, useContext, useState, useEffect, useMemo, useCallback } from "react";
+import React, { createContext, useContext, useState, useEffect, useMemo, useCallback } from "react";
 import { supabase, isSupabaseConfigured } from "../lib/supabaseClient";
 import { useAuth } from "./AuthContext";
 import { INITIAL_TRANSACTIONS } from "../mock/mockData";
@@ -7,16 +7,17 @@ import { formatINR } from "../utils/formatters";
 const TransactionContext = createContext(null);
 
 export function TransactionProvider({ children }) {
-  const { user, role: authRole } = useAuth();
+  const { user, role: authRole, canManageFinance: authCanManage } = useAuth();
 
   const [transactions, setTransactions] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [demoRole, setDemoRole] = useState("admin"); // Fallback toggle when not logged in
+  const [demoRole, setDemoRole] = useState("admin");
   const [toasts, setToasts] = useState([]);
 
-  // Determine effective role
+  // Determine effective role & permissions
   const role = user ? authRole : demoRole;
+  const canManageFinance = user ? authCanManage : (demoRole === "admin" || demoRole === "committee");
 
   // Toast System
   const addToast = useCallback((toast) => {
@@ -65,7 +66,7 @@ export function TransactionProvider({ children }) {
     fetchTransactions();
   }, [fetchTransactions]);
 
-  // Supabase Realtime Listener (Phase 6)
+  // Supabase Realtime Listener
   useEffect(() => {
     if (!isSupabaseConfigured || !supabase) return;
 
@@ -84,7 +85,6 @@ export function TransactionProvider({ children }) {
               return [newRow, ...prev];
             });
 
-            // Live toast on connected devices
             if (newRow.type === "donation") {
               addToast({
                 type: "donation",
@@ -124,7 +124,7 @@ export function TransactionProvider({ children }) {
     };
   }, [addToast, fetchTransactions]);
 
-  // Strictly Derived Financial Metrics (NEVER manually edited or stored)
+  // Purely Derived Financial Metrics
   const { totalDonations, totalExpenses, currentHolding } = useMemo(() => {
     let donations = 0;
     let expenses = 0;
@@ -152,10 +152,10 @@ export function TransactionProvider({ children }) {
       .slice(0, 5);
   }, [transactions]);
 
-  // Add Transaction
+  // Add Transaction (Admin or Committee)
   const addTransaction = async (data) => {
-    if (role !== "admin") {
-      throw new Error("Unauthorized: Only Admins can record transactions.");
+    if (!canManageFinance) {
+      throw new Error("Unauthorized: Only Admin and Committee members can record transactions.");
     }
 
     const amount = Number(data.amount);
@@ -163,7 +163,6 @@ export function TransactionProvider({ children }) {
       throw new Error("Please enter a valid amount greater than 0.");
     }
 
-    // Client-side quick balance check
     if (data.type === "expense" && amount > currentHolding) {
       throw new Error(`Insufficient funds. Current holding is ${formatINR(currentHolding)}.`);
     }
@@ -188,7 +187,6 @@ export function TransactionProvider({ children }) {
         throw new Error(insertErr.message || "Database failed to save transaction.");
       }
 
-      // Optimistically ensure in state
       setTransactions((prev) => {
         if (prev.some((t) => t.id === newRow.id)) return prev;
         return [newRow, ...prev];
@@ -225,10 +223,10 @@ export function TransactionProvider({ children }) {
     }
   };
 
-  // Update Transaction
+  // Update Transaction (Admin or Committee)
   const updateTransaction = async (id, updatedData) => {
-    if (role !== "admin") {
-      throw new Error("Unauthorized: Only Admins can edit transactions.");
+    if (!canManageFinance) {
+      throw new Error("Unauthorized: Only Admin and Committee members can edit transactions.");
     }
 
     const amount = Number(updatedData.amount);
@@ -280,10 +278,10 @@ export function TransactionProvider({ children }) {
     }
   };
 
-  // Delete Transaction
+  // Delete Transaction (Admin or Committee)
   const deleteTransaction = async (id) => {
-    if (role !== "admin") {
-      throw new Error("Unauthorized: Only Admins can delete transactions.");
+    if (!canManageFinance) {
+      throw new Error("Unauthorized: Only Admin and Committee members can delete transactions.");
     }
 
     const targetTx = transactions.find((t) => t.id === id);
@@ -314,7 +312,7 @@ export function TransactionProvider({ children }) {
   };
 
   const toggleRole = () => {
-    setDemoRole((prev) => (prev === "admin" ? "viewer" : "admin"));
+    setDemoRole((prev) => (prev === "admin" ? "devotee" : "admin"));
   };
 
   return (
@@ -324,6 +322,7 @@ export function TransactionProvider({ children }) {
         isLoading,
         error,
         role,
+        canManageFinance,
         toggleRole,
         totalDonations,
         totalExpenses,

@@ -1,4 +1,4 @@
-﻿import React, { useState } from "react";
+import React, { useState } from "react";
 import { useTransactions } from "../context/TransactionContext";
 import CurrentHoldingCard from "../components/CurrentHoldingCard";
 import StatCards from "../components/StatCards";
@@ -8,7 +8,7 @@ import DashboardSkeleton from "../components/DashboardSkeleton";
 import { Plus, Sparkles, RefreshCw } from "lucide-react";
 
 export default function DashboardPage() {
-  const { role, isLoading, fetchTransactions } = useTransactions();
+  const { role, canManageFinance, isLoading, fetchTransactions } = useTransactions();
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
 
   if (isLoading) {
@@ -43,8 +43,8 @@ export default function DashboardPage() {
       {/* 2. Total Donations & Total Money Spent Cards */}
       <StatCards />
 
-      {/* 3. Action Section for ADMIN */}
-      {role === "admin" && (
+      {/* 3. Action Section for ADMIN & COMMITTEE */}
+      {canManageFinance && (
         <div className="flex justify-center sm:justify-start">
           <button
             onClick={() => setIsAddModalOpen(true)}
@@ -59,8 +59,8 @@ export default function DashboardPage() {
       {/* 4. Recent Activity (Latest 5 Transactions) */}
       <RecentActivity />
 
-      {/* Mobile Floating Action Button for Admin */}
-      {role === "admin" && (
+      {/* Mobile Floating Action Button for Admin & Committee */}
+      {canManageFinance && (
         <div className="fixed bottom-5 right-5 sm:hidden z-30">
           <button
             onClick={() => setIsAddModalOpen(true)}

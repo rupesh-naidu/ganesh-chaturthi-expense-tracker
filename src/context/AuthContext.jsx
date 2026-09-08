@@ -1,4 +1,4 @@
-﻿import React, { createContext, useContext, useState, useEffect, useCallback } from "react";
+import React, { createContext, useContext, useState, useEffect, useCallback } from "react";
 import { supabase, isSupabaseConfigured } from "../lib/supabaseClient";
 
 const AuthContext = createContext(null);
@@ -21,14 +21,13 @@ export function AuthProvider({ children }) {
 
       if (error) {
         console.warn("Could not fetch user profile:", error.message);
-        // Default fallback if profile trigger was still running
-        setProfile({ role: "viewer" });
+        setProfile({ role: "devotee" });
       } else {
         setProfile(data);
       }
     } catch (err) {
       console.error("Profile fetch error:", err);
-      setProfile({ role: "viewer" });
+      setProfile({ role: "devotee" });
     }
   }, []);
 
@@ -38,7 +37,6 @@ export function AuthProvider({ children }) {
       return;
     }
 
-    // Get initial session
     supabase.auth.getSession().then(({ data: { session } }) => {
       setUser(session?.user ?? null);
       if (session?.user) {
@@ -47,7 +45,6 @@ export function AuthProvider({ children }) {
       setLoading(false);
     });
 
-    // Listen for auth state changes
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange(async (_event, session) => {
@@ -65,7 +62,6 @@ export function AuthProvider({ children }) {
     };
   }, [fetchProfile]);
 
-  // Sign in with Email and Password
   const signIn = async (email, password) => {
     if (!isSupabaseConfigured || !supabase) {
       throw new Error("Supabase is not configured yet.");
@@ -78,7 +74,6 @@ export function AuthProvider({ children }) {
     return data;
   };
 
-  // Sign up for new admin / viewer
   const signUp = async (email, password) => {
     if (!isSupabaseConfigured || !supabase) {
       throw new Error("Supabase is not configured yet.");
@@ -91,7 +86,6 @@ export function AuthProvider({ children }) {
     return data;
   };
 
-  // Sign out
   const signOut = async () => {
     if (!isSupabaseConfigured || !supabase) return;
     const { error } = await supabase.auth.signOut();
@@ -100,8 +94,11 @@ export function AuthProvider({ children }) {
     setProfile(null);
   };
 
-  const isAdmin = profile?.role === "admin";
-  const role = isAdmin ? "admin" : "viewer";
+  const role = profile?.role || "devotee";
+  const isAdmin = role === "admin";
+  const isCommittee = role === "committee";
+  // Both Admin and Committee have full powers to Add, Edit, Delete transactions:
+  const canManageFinance = isAdmin || isCommittee;
 
   return (
     <AuthContext.Provider
@@ -110,6 +107,8 @@ export function AuthProvider({ children }) {
         profile,
         role,
         isAdmin,
+        isCommittee,
+        canManageFinance,
         loading,
         signIn,
         signUp,
