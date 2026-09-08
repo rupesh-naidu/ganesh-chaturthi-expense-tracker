@@ -1,16 +1,20 @@
-﻿import { createClient } from "@supabase/supabase-js";
+import { createClient } from "@supabase/supabase-js";
 
-const rawUrl = import.meta.env.VITE_SUPABASE_URL || "";
-// Normalize URL by removing trailing slashes or /rest/v1
-export const supabaseUrl = rawUrl.replace(/\/rest\/v1\/?$/, "").replace(/\/+$/, "");
-export const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || "";
+const rawUrl =
+  import.meta.env.VITE_SUPABASE_URL ||
+  "https://dzgdwwauiblbivpuhgxv.supabase.co";
+
+const rawKey =
+  import.meta.env.VITE_SUPABASE_ANON_KEY ||
+  "sb_publishable_DeYzIhzz8ZbUE2GIc5hQ9g_bZc5KQkR";
+
+export const supabaseUrl = (rawUrl || "").replace(/\/rest\/v1\/?$/, "").replace(/\/+$/, "");
+export const supabaseAnonKey = (rawKey || "").trim();
 
 export const isSupabaseConfigured = Boolean(
   supabaseUrl &&
   supabaseAnonKey &&
-  supabaseUrl.startsWith("https://") &&
-  !supabaseUrl.includes("your-project-ref") &&
-  !supabaseAnonKey.includes("your-anon-public-key")
+  supabaseUrl.startsWith("https://")
 );
 
 export const supabase = isSupabaseConfigured

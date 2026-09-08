@@ -1,10 +1,10 @@
 ﻿import React, { useState, useEffect } from "react";
 import { useTransactions } from "../context/TransactionContext";
 import { formatINR } from "../utils/formatters";
-import { X, ArrowDownLeft, ArrowUpRight, AlertCircle, CheckCircle } from "lucide-react";
+import { X, ArrowDownLeft, ArrowUpRight, AlertCircle, Loader2 } from "lucide-react";
 
 export default function TransactionModal({ isOpen, onClose, transactionToEdit = null }) {
-  const { addTransaction, updateTransaction, currentHolding } = useTransactions();
+  const { addTransaction, updateTransaction, currentHolding, role } = useTransactions();
 
   const isEditing = Boolean(transactionToEdit);
 
@@ -15,7 +15,6 @@ export default function TransactionModal({ isOpen, onClose, transactionToEdit = 
   const [error, setError] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Initialize or reset form on open/change
   useEffect(() => {
     if (transactionToEdit) {
       setType(transactionToEdit.type || "donation");
@@ -34,11 +33,10 @@ export default function TransactionModal({ isOpen, onClose, transactionToEdit = 
 
   if (!isOpen) return null;
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     setError("");
 
-    // Section 11 Validation
     const trimmedName = name.trim();
     if (!trimmedName) {
       setError("Name is required.");
@@ -57,14 +55,12 @@ export default function TransactionModal({ isOpen, onClose, transactionToEdit = 
       return;
     }
 
-    // Section 12 Expense Protection check on client before calling context
+    // Client-side balance check for expenses
     if (type === "expense") {
       let maxAllowed = currentHolding;
-      // If editing an existing expense, available money increases by the old amount
       if (isEditing && transactionToEdit.type === "expense") {
         maxAllowed += Number(transactionToEdit.amount);
       }
-      // If editing an existing donation to an expense, available money decreases by old donation
       if (isEditing && transactionToEdit.type === "donation") {
         maxAllowed -= Number(transactionToEdit.amount);
       }
@@ -79,14 +75,14 @@ export default function TransactionModal({ isOpen, onClose, transactionToEdit = 
 
     try {
       if (isEditing) {
-        updateTransaction(transactionToEdit.id, {
+        await updateTransaction(transactionToEdit.id, {
           type,
           name: trimmedName,
           amount: numericAmount,
           description: trimmedDesc,
         });
       } else {
-        addTransaction({
+        await addTransaction({
           type,
           name: trimmedName,
           amount: numericAmount,
@@ -95,7 +91,14 @@ export default function TransactionModal({ isOpen, onClose, transactionToEdit = 
       }
       onClose();
     } catch (err) {
-      setError(err.message || "Failed to save transaction.");
+      console.error("Save transaction error:", err);
+      // User-friendly error mapping
+      if (err.message && err.message.includes("row-level security")) {
+        setError("Unauthorized by Database: You must log in as an Admin via 'Admin Login' to record entries into Supabase.");
+      } else {
+        setError(err.message || "Failed to save transaction.");
+      }
+    } finally {
       setIsSubmitting(false);
     }
   };
@@ -124,7 +127,8 @@ export default function TransactionModal({ isOpen, onClose, transactionToEdit = 
 
           <button
             onClick={onClose}
-            className="text-gray-400 hover:text-gray-600 p-1.5 rounded-full hover:bg-gray-100 transition-colors"
+            disabled={isSubmitting}
+            className="text-gray-400 hover:text-gray-600 p-1.5 rounded-full hover:bg-gray-100 transition-colors disabled:opacity-50"
           >
             <X className="w-5 h-5" />
           </button>
@@ -134,9 +138,11 @@ export default function TransactionModal({ isOpen, onClose, transactionToEdit = 
         <form onSubmit={handleSubmit} className="p-6 space-y-5">
           {/* Error Alert */}
           {error && (
-            <div className="p-3.5 rounded-2xl bg-rose-50 border border-rose-200 flex items-start gap-2.5 text-xs sm:text-sm text-rose-800 font-medium animate-shake">
+            <div className="p-3.5 rounded-2xl bg-rose-50 border border-rose-200 flex items-start gap-2.5 text-xs sm:text-sm text-rose-800 font-semibold animate-shake">
               <AlertCircle className="w-4 h-4 text-rose-600 flex-shrink-0 mt-0.5" />
-              <span>{error}</span>
+              <div className="flex-1">
+                <p>{error}</p>
+              </div>
             </div>
           )}
 
@@ -253,20 +259,24 @@ export default function TransactionModal({ isOpen, onClose, transactionToEdit = 
             <button
               type="button"
               onClick={onClose}
-              className="px-5 py-2.5 rounded-xl text-xs sm:text-sm font-bold text-gray-600 hover:bg-gray-100 transition-colors"
+              disabled={isSubmitting}
+              className="px-5 py-2.5 rounded-xl text-xs sm:text-sm font-bold text-gray-600 hover:bg-gray-100 transition-colors disabled:opacity-50"
             >
               Cancel
             </button>
             <button
               type="submit"
               disabled={isSubmitting}
-              className="px-6 py-2.5 rounded-xl text-xs sm:text-sm font-bold text-white bg-gradient-to-r from-orange-600 to-amber-600 hover:from-orange-700 hover:to-amber-700 shadow-festive active:scale-95 disabled:opacity-50 transition-all"
+              className="px-6 py-2.5 rounded-xl text-xs sm:text-sm font-bold text-white bg-gradient-to-r from-orange-600 to-amber-600 hover:from-orange-700 hover:to-amber-700 shadow-festive active:scale-95 disabled:opacity-50 transition-all flex items-center gap-2"
             >
-              {isSubmitting
-                ? "Saving..."
-                : isEditing
-                ? "Save Changes"
-                : "Save Transaction"}
+              {isSubmitting && <Loader2 className="w-4 h-4 animate-spin" />}
+              <span>
+                {isSubmitting
+                  ? "Saving to Database..."
+                  : isEditing
+                  ? "Save Changes"
+                  : "Save Transaction"}
+              </span>
             </button>
           </div>
         </form>

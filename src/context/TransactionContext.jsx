@@ -75,6 +75,8 @@ export function TransactionProvider({ children }) {
         "postgres_changes",
         { event: "*", schema: "public", table: "transactions" },
         (payload) => {
+          console.log("⚡ Realtime event received:", payload.eventType, payload);
+
           if (payload.eventType === "INSERT") {
             const newRow = payload.new;
             setTransactions((prev) => {
@@ -108,13 +110,14 @@ export function TransactionProvider({ children }) {
             if (deletedId) {
               setTransactions((prev) => prev.filter((t) => t.id !== deletedId));
             } else {
-              // Re-sync on delete if replica identity was not set
               fetchTransactions();
             }
           }
         }
       )
-      .subscribe();
+      .subscribe((status, err) => {
+        console.log("⚡ Realtime subscription status:", status, err || "");
+      });
 
     return () => {
       supabase.removeChannel(channel);
@@ -181,10 +184,11 @@ export function TransactionProvider({ children }) {
         .single();
 
       if (insertErr) {
+        console.error("Supabase insert error:", insertErr);
         throw new Error(insertErr.message || "Database failed to save transaction.");
       }
 
-      // Optimistically ensure in state if realtime has latency
+      // Optimistically ensure in state
       setTransactions((prev) => {
         if (prev.some((t) => t.id === newRow.id)) return prev;
         return [newRow, ...prev];
@@ -250,6 +254,7 @@ export function TransactionProvider({ children }) {
         .single();
 
       if (updateErr) {
+        console.error("Supabase update error:", updateErr);
         throw new Error(updateErr.message || "Database failed to update transaction.");
       }
 
@@ -290,6 +295,7 @@ export function TransactionProvider({ children }) {
         .eq("id", id);
 
       if (deleteErr) {
+        console.error("Supabase delete error:", deleteErr);
         throw new Error(deleteErr.message || "Database failed to delete transaction.");
       }
 
