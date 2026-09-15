@@ -69,7 +69,13 @@ export default function ManageUsersModal({ isOpen, onClose }) {
       }
     } catch (err) {
       console.error("Error updating role:", err);
-      setError(err.message || "Failed to change user role.");
+      if (err.message && err.message.includes("profiles_role_check")) {
+        setError(
+          "Database constraint error: The 3-tier role migration has not been run in your Supabase SQL Editor. Please run the SQL script in Supabase to allow 'committee' and 'devotee' roles."
+        );
+      } else {
+        setError(err.message || "Failed to change user role.");
+      }
     } finally {
       setUpdatingId(null);
     }
@@ -165,7 +171,7 @@ export default function ManageUsersModal({ isOpen, onClose }) {
                 const isSelf = p.id === user?.id;
                 const isUserAdmin = p.role === "admin";
                 const isUserCommittee = p.role === "committee";
-                const isUserDevotee = p.role === "devotee" || !p.role;
+                const isUserDevotee = p.role === "devotee" || p.role === "viewer" || !p.role;
                 const isBusy = updatingId === p.id;
 
                 return (
