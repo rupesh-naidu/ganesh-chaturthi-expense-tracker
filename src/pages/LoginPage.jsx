@@ -1,10 +1,12 @@
-﻿import React, { useState } from "react";
+import React, { useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
-import { Lock, Mail, ArrowLeft, ShieldCheck, AlertCircle, Sparkles } from "lucide-react";
+import { useTransactions } from "../context/TransactionContext";
+import { Lock, Mail, ArrowLeft, ShieldCheck, AlertCircle } from "lucide-react";
 
 export default function LoginPage() {
-  const { signIn, signUp, user, role, signOut } = useAuth();
+  const { signIn, signUp, user, signOut } = useAuth();
+  const { displayRole } = useTransactions();
   const navigate = useNavigate();
 
   const [mode, setMode] = useState("signin"); // "signin" | "signup"
@@ -26,7 +28,7 @@ export default function LoginPage() {
           Logged in as <strong>{user.email}</strong>
         </p>
         <div className="inline-block px-3 py-1 rounded-full text-xs font-extrabold uppercase tracking-wider bg-orange-100 text-orange-800 border border-orange-200">
-          Role: {role}
+          Role: {displayRole}
         </div>
         <div className="pt-4 flex items-center justify-center gap-3">
           <button
@@ -113,7 +115,7 @@ export default function LoginPage() {
                 : "text-gray-500 hover:text-gray-900"
             }`}
           >
-            Admin Sign In
+            Sign In
           </button>
           <button
             type="button"
@@ -192,7 +194,7 @@ export default function LoginPage() {
             {isSubmitting
               ? "Authenticating..."
               : mode === "signin"
-              ? "Login to Admin Portal"
+              ? "Login"
               : "Register Account"}
           </button>
         </form>
@@ -204,7 +206,7 @@ export default function LoginPage() {
           </p>
           {mode === "signup" && (
             <p className="text-[11px] text-orange-700 font-semibold mt-1">
-              ⭐ The first user created automatically receives the <strong>ADMIN</strong> role!
+              New accounts start as <strong>DEVOTEES</strong>. A committee administrator can grant committee access.
             </p>
           )}
         </div>

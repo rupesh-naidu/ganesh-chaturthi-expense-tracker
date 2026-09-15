@@ -1,7 +1,7 @@
 ﻿import React, { useState } from "react";
 import { useTransactions } from "../context/TransactionContext";
 import { formatINR } from "../utils/formatters";
-import { AlertTriangle, Trash2, X, Loader2 } from "lucide-react";
+import { AlertTriangle, Trash2, Loader2 } from "lucide-react";
 
 export default function DeleteConfirmModal({ isOpen, onClose, transaction }) {
   const { deleteTransaction } = useTransactions();

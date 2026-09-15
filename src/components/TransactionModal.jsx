@@ -4,7 +4,7 @@ import { formatINR } from "../utils/formatters";
 import { X, ArrowDownLeft, ArrowUpRight, AlertCircle, Loader2 } from "lucide-react";
 
 export default function TransactionModal({ isOpen, onClose, transactionToEdit = null }) {
-  const { addTransaction, updateTransaction, currentHolding, role } = useTransactions();
+  const { addTransaction, updateTransaction, currentHolding } = useTransactions();
 
   const isEditing = Boolean(transactionToEdit);
 

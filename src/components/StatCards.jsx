@@ -1,7 +1,7 @@
 ﻿import React from "react";
 import { useTransactions } from "../context/TransactionContext";
 import { formatINR } from "../utils/formatters";
-import { ArrowDownLeft, ArrowUpRight, TrendingUp, TrendingDown } from "lucide-react";
+import { ArrowDownLeft, ArrowUpRight } from "lucide-react";
 
 export default function StatCards() {
   const { totalDonations, totalExpenses, transactions } = useTransactions();

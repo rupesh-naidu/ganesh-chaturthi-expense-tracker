@@ -6,7 +6,6 @@ import ManageUsersModal from "./ManageUsersModal";
 import {
   LayoutDashboard,
   Receipt,
-  ShieldCheck,
   UserCheck,
   Plus,
   LogIn,
@@ -15,13 +14,11 @@ import {
 } from "lucide-react";
 
 export default function Navbar({ onOpenAddModal }) {
-  const { role: mockRole } = useTransactions();
-  const { user, role: authRole, signOut } = useAuth();
+  const { canManageFinance } = useTransactions();
+  const { user, isAdmin, isCommittee, role, signOut } = useAuth();
   const location = useLocation();
 
   const [isUsersModalOpen, setIsUsersModalOpen] = useState(false);
-
-  const effectiveRole = user ? authRole : mockRole;
 
   const isHome = location.pathname === "/";
   const isTransactions = location.pathname === "/transactions";
@@ -78,19 +75,19 @@ export default function Navbar({ onOpenAddModal }) {
               </nav>
 
               {/* Committee Roles Button (visible to Admins) */}
-              {effectiveRole === "admin" && (
+              {isAdmin && (
                 <button
                   onClick={() => setIsUsersModalOpen(true)}
                   className="hidden sm:flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold text-gray-700 hover:text-orange-900 bg-amber-100/60 hover:bg-amber-100 border border-amber-300/80 transition-all shadow-sm"
-                  title="Manage Admin & Viewer roles for committee members"
+                  title="Manage Admin & Committee roles for members"
                 >
                   <Users className="w-3.5 h-3.5 text-orange-600" />
                   <span>Roles</span>
                 </button>
               )}
 
-              {/* Quick Add Button for Admin */}
-              {effectiveRole === "admin" && onOpenAddModal && (
+              {/* Quick Add Button for Committee & Admin */}
+              {canManageFinance && onOpenAddModal && (
                 <button
                   onClick={onOpenAddModal}
                   className="hidden sm:flex items-center gap-1.5 bg-gradient-to-r from-orange-600 to-amber-600 hover:from-orange-700 hover:to-amber-700 text-white font-bold px-3.5 py-2 rounded-xl text-xs shadow-festive hover:shadow-festive-lg transition-all active:scale-95"
@@ -105,21 +102,19 @@ export default function Navbar({ onOpenAddModal }) {
                 <div className="flex items-center gap-1.5 sm:gap-2">
                   <div
                     className={`flex items-center gap-1.5 px-2.5 py-1.5 sm:px-3 sm:py-2 rounded-xl text-xs font-bold border shadow-sm ${
-                      effectiveRole === "admin"
+                      isAdmin
                         ? "bg-orange-50 border-orange-300 text-orange-800"
-                        : effectiveRole === "committee"
+                        : isCommittee
                         ? "bg-blue-50 border-blue-300 text-blue-800"
                         : "bg-emerald-50 border-emerald-300 text-emerald-800"
                     }`}
                   >
                     <span>
-                      {effectiveRole === "admin"
-                        ? "👑"
-                        : effectiveRole === "committee"
-                        ? "🛡️"
-                        : "🙏"}
+                      {isAdmin ? "👑" : isCommittee ? "🛡️" : "🙏"}
                     </span>
-                    <span className="hidden sm:inline uppercase">{effectiveRole}</span>
+                    <span className="hidden sm:inline uppercase">
+                      {isAdmin ? "admin" : isCommittee ? "committee" : "devotee"}
+                    </span>
                   </div>
 
                   <button
@@ -173,10 +168,10 @@ export default function Navbar({ onOpenAddModal }) {
               <Receipt className="w-4 h-4" />
               Transactions
             </Link>
-            {effectiveRole === "admin" && (
+            {isAdmin && (
               <button
                 onClick={() => setIsUsersModalOpen(true)}
-                className="flex items-center gap-1 px-3 py-1 rounded-lg text-xs font-bold text-gray-500"
+                className="flex items-center gap-1 px-3 py-1 rounded-lg text-xs font-bold text-gray-500 hover:text-orange-700"
               >
                 <Users className="w-4 h-4" />
                 Roles
@@ -186,7 +181,7 @@ export default function Navbar({ onOpenAddModal }) {
         </div>
       </header>
 
-      {/* Committee Roles Modal */}
+      {/* Committee Roles Modal for Admin */}
       <ManageUsersModal
         isOpen={isUsersModalOpen}
         onClose={() => setIsUsersModalOpen(false)}

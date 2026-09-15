@@ -2,7 +2,7 @@
 import { Link } from "react-router-dom";
 import { useTransactions } from "../context/TransactionContext";
 import { formatINR, formatRelativeTime } from "../utils/formatters";
-import { ArrowRight, Clock, Sparkles } from "lucide-react";
+import { ArrowRight, Clock } from "lucide-react";
 
 export default function RecentActivity() {
   const { recentTransactions } = useTransactions();

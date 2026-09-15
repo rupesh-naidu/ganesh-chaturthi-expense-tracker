@@ -1,6 +1,6 @@
 ﻿import React from "react";
 import { useTransactions } from "../context/TransactionContext";
-import { X, CheckCircle, AlertCircle, Info } from "lucide-react";
+import { X } from "lucide-react";
 
 export default function ToastContainer() {
   const { toasts, removeToast } = useTransactions();

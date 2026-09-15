@@ -1,4 +1,4 @@
-﻿-- ==============================================================================
+-- ==============================================================================
 -- GANESH CHATURTHI 2026: DATABASE SCHEMA, RLS POLICIES & EXPENSE PROTECTION
 -- ==============================================================================
 
@@ -6,7 +6,7 @@
 create table if not exists public.profiles (
   id uuid references auth.users on delete cascade primary key,
   email text,
-  role text not null check (role in ('admin', 'viewer')) default 'viewer',
+  role text not null check (role in ('admin', 'committee', 'devotee')) default 'devotee',
   created_at timestamptz default now()
 );
 
@@ -38,6 +38,16 @@ begin
 end;
 $$ language plpgsql security definer;
 
+create or replace function public.can_manage_finance()
+returns boolean as $$
+begin
+  return exists (
+    select 1 from public.profiles
+    where id = auth.uid() and role in ('admin', 'committee')
+  );
+end;
+$$ language plpgsql security definer;
+
 -- 4. RLS Policies for Profiles
 drop policy if exists "Allow users to view own profile or admins to view all" on public.profiles;
 create policy "Allow users to view own profile or admins to view all"
@@ -56,24 +66,27 @@ create policy "Allow everyone to read transactions"
   on public.transactions for select
   using (true);
 
--- B. INSERT: Admin only
+-- B. INSERT: Committee and admin only
 drop policy if exists "Allow admins to insert transactions" on public.transactions;
-create policy "Allow admins to insert transactions"
+drop policy if exists "Allow committee and admin to insert transactions" on public.transactions;
+create policy "Allow committee and admin to insert transactions"
   on public.transactions for insert
-  with check (public.is_admin());
+  with check (public.can_manage_finance());
 
--- C. UPDATE: Admin only
+-- C. UPDATE: Committee and admin only
 drop policy if exists "Allow admins to update transactions" on public.transactions;
-create policy "Allow admins to update transactions"
+drop policy if exists "Allow committee and admin to update transactions" on public.transactions;
+create policy "Allow committee and admin to update transactions"
   on public.transactions for update
-  using (public.is_admin())
-  with check (public.is_admin());
+  using (public.can_manage_finance())
+  with check (public.can_manage_finance());
 
--- D. DELETE: Admin only
+-- D. DELETE: Committee and admin only
 drop policy if exists "Allow admins to delete transactions" on public.transactions;
-create policy "Allow admins to delete transactions"
+drop policy if exists "Allow committee and admin to delete transactions" on public.transactions;
+create policy "Allow committee and admin to delete transactions"
   on public.transactions for delete
-  using (public.is_admin());
+  using (public.can_manage_finance());
 
 -- 6. Database-Level Expense Protection Trigger (Negative Balance Prevention)
 create or replace function public.check_sufficient_funds()
@@ -83,6 +96,10 @@ declare
   v_expenses numeric(12, 2);
   v_current_holding numeric(12, 2);
 begin
+  -- Serialize balance-changing writes so concurrent expenses cannot both pass
+  -- the balance check using the same stale total.
+  perform pg_advisory_xact_lock(hashtext('public.transactions.balance'));
+
   -- Compute current totals excluding the row being modified
   select
     coalesce(sum(case when type = 'donation' then amount else 0 end), 0),
@@ -118,6 +135,12 @@ begin
     end if;
   end if;
 
+  -- A BEFORE DELETE trigger must return OLD. Returning NEW (which is NULL for
+  -- deletes) silently cancels the deletion.
+  if tg_op = 'DELETE' then
+    return old;
+  end if;
+
   return new;
 end;
 $$ language plpgsql;
@@ -135,9 +158,10 @@ begin
   values (
     new.id,
     new.email,
-    -- First signed up user automatically becomes 'admin'; subsequent users default to 'viewer'
-    case when (select count(*) from public.profiles) = 0 then 'admin' else 'viewer' end
-  );
+    -- First signed up user automatically becomes admin; all later users are devotees.
+    case when (select count(*) from public.profiles) = 0 then 'admin' else 'devotee' end
+  )
+  on conflict (id) do update set email = excluded.email;
   return new;
 end;
 $$ language plpgsql security definer;
@@ -146,6 +170,25 @@ drop trigger if exists on_auth_user_created on auth.users;
 create trigger on_auth_user_created
   after insert on auth.users
   for each row execute function public.handle_new_user();
+
+-- Ensure a direct API request cannot demote the final administrator and leave
+-- the project without anyone able to manage committee access.
+create or replace function public.prevent_last_admin_removal()
+returns trigger as $$
+begin
+  if old.role = 'admin' and new.role <> 'admin' and not exists (
+    select 1 from public.profiles where role = 'admin' and id <> old.id
+  ) then
+    raise exception 'At least one administrator is required.';
+  end if;
+  return new;
+end;
+$$ language plpgsql security definer;
+
+drop trigger if exists trg_prevent_last_admin_removal on public.profiles;
+create trigger trg_prevent_last_admin_removal
+  before update of role on public.profiles
+  for each row execute function public.prevent_last_admin_removal();
 
 -- 8. Enable Realtime Publications for Transactions
 do $$

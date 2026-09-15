@@ -12,12 +12,15 @@ export function TransactionProvider({ children }) {
   const [transactions, setTransactions] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [demoRole, setDemoRole] = useState("admin");
+  // Visitors must always remain read-only when Supabase is unavailable.
+  const [demoRole] = useState("devotee");
   const [toasts, setToasts] = useState([]);
 
   // Determine effective role & permissions
   const role = user ? authRole : demoRole;
   const canManageFinance = user ? authCanManage : (demoRole === "admin" || demoRole === "committee");
+  // 3-Tier roles: admin, committee, or devotee
+  const displayRole = role;
 
   // Toast System
   const addToast = useCallback((toast) => {
@@ -85,20 +88,25 @@ export function TransactionProvider({ children }) {
               return [newRow, ...prev];
             });
 
-            if (newRow.type === "donation") {
-              addToast({
-                type: "donation",
-                title: "🟢 New Donation",
-                message: `${newRow.name} donated ${formatINR(newRow.amount)}`,
-                subMessage: "Thank you for the contribution! 🙏",
-              });
-            } else if (newRow.type === "expense") {
-              addToast({
-                type: "expense",
-                title: "🔴 New Expense",
-                message: `${newRow.name} spent ${formatINR(newRow.amount)}`,
-                subMessage: newRow.description,
-              });
+            // Only show toast for inserts made by OTHER users/tabs.
+            // The local addTransaction() already shows one for our own writes.
+            const isOwnWrite = user && newRow.created_by === user.id;
+            if (!isOwnWrite) {
+              if (newRow.type === "donation") {
+                addToast({
+                  type: "donation",
+                  title: "🟢 New Donation",
+                  message: `${newRow.name} donated ${formatINR(newRow.amount)}`,
+                  subMessage: "Thank you for the contribution! 🙏",
+                });
+              } else if (newRow.type === "expense") {
+                addToast({
+                  type: "expense",
+                  title: "🔴 New Expense",
+                  message: `${newRow.name} spent ${formatINR(newRow.amount)}`,
+                  subMessage: newRow.description,
+                });
+              }
             }
           } else if (payload.eventType === "UPDATE") {
             const updatedRow = payload.new;
@@ -234,6 +242,25 @@ export function TransactionProvider({ children }) {
       throw new Error("Please enter a valid amount greater than 0.");
     }
 
+    const existingTransaction = transactions.find((t) => t.id === id);
+    if (!existingTransaction) {
+      throw new Error("Transaction not found. Please refresh and try again.");
+    }
+
+    // Check the resulting balance as if this record were replaced. Supabase
+    // enforces this too, but the check is required for local/demo operation.
+    const holdingWithoutExisting =
+      currentHolding +
+      (existingTransaction.type === "donation"
+        ? -Number(existingTransaction.amount)
+        : Number(existingTransaction.amount));
+    const resultingHolding = holdingWithoutExisting +
+      (updatedData.type === "donation" ? amount : -amount);
+
+    if (resultingHolding < 0) {
+      throw new Error(`Insufficient funds. Current holding is ${formatINR(currentHolding)}.`);
+    }
+
     if (isSupabaseConfigured && supabase) {
       const payload = {
         type: updatedData.type,
@@ -311,10 +338,6 @@ export function TransactionProvider({ children }) {
     }
   };
 
-  const toggleRole = () => {
-    setDemoRole((prev) => (prev === "admin" ? "devotee" : "admin"));
-  };
-
   return (
     <TransactionContext.Provider
       value={{
@@ -322,8 +345,8 @@ export function TransactionProvider({ children }) {
         isLoading,
         error,
         role,
+        displayRole,
         canManageFinance,
-        toggleRole,
         totalDonations,
         totalExpenses,
         currentHolding,

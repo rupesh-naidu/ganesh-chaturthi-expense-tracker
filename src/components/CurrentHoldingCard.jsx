@@ -1,10 +1,10 @@
 ﻿import React from "react";
 import { useTransactions } from "../context/TransactionContext";
 import { formatINR } from "../utils/formatters";
-import { Sparkles, Wallet, ShieldCheck } from "lucide-react";
+import { Sparkles, ShieldCheck } from "lucide-react";
 
 export default function CurrentHoldingCard() {
-  const { currentHolding, totalDonations, totalExpenses } = useTransactions();
+  const { currentHolding } = useTransactions();
 
   return (
     <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-[#FFF8EE] via-white to-[#FEF3C7] border-2 border-amber-300/80 p-6 sm:p-8 shadow-festive-lg">

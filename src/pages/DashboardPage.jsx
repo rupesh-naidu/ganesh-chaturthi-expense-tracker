@@ -5,10 +5,10 @@ import StatCards from "../components/StatCards";
 import RecentActivity from "../components/RecentActivity";
 import TransactionModal from "../components/TransactionModal";
 import DashboardSkeleton from "../components/DashboardSkeleton";
-import { Plus, Sparkles, RefreshCw } from "lucide-react";
+import { Plus, RefreshCw } from "lucide-react";
 
 export default function DashboardPage() {
-  const { role, canManageFinance, isLoading, fetchTransactions } = useTransactions();
+  const { displayRole, canManageFinance, isLoading, fetchTransactions } = useTransactions();
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
 
   if (isLoading) {
@@ -33,7 +33,7 @@ export default function DashboardPage() {
             <span>Sync</span>
           </button>
           <span>•</span>
-          <span>Active Role: <strong className="uppercase">{role}</strong></span>
+          <span>You are a <strong className="uppercase">{displayRole}</strong></span>
         </div>
       </div>
 

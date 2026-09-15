@@ -5,7 +5,6 @@ import TransactionModal from "../components/TransactionModal";
 import DeleteConfirmModal from "../components/DeleteConfirmModal";
 import {
   Search,
-  Filter,
   Plus,
   Edit2,
   Trash2,
@@ -16,7 +15,7 @@ import {
 } from "lucide-react";
 
 export default function TransactionsPage() {
-  const { transactions, role, canManageFinance, isLoading, fetchTransactions } = useTransactions();
+  const { transactions, canManageFinance, isLoading, fetchTransactions } = useTransactions();
 
   const [filterType, setFilterType] = useState("all"); // "all" | "donations" | "expenses"
   const [searchQuery, setSearchQuery] = useState("");
