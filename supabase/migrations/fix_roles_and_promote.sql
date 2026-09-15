@@ -1,20 +1,21 @@
 -- ==============================================================================
 -- FIX: 3-TIER ROLE SYSTEM (Admin -> Committee -> Devotee)
--- Run this in Supabase SQL Editor to enable Admin promotion of Committee members
 -- ==============================================================================
 
--- 1. Remove the old check constraint that only allowed ('admin', 'viewer')
+-- 1. Remove the old check constraint first
 alter table public.profiles drop constraint if exists profiles_role_check;
 
--- 2. Add the 3-tier check constraint
+-- 2. CRITICAL: Convert existing 'viewer' (or any non-admin) rows to 'devotee' BEFORE adding the new constraint!
+update public.profiles 
+set role = 'devotee' 
+where role is null or role not in ('admin', 'committee');
+
+-- 3. Now add the 3-tier check constraint (all rows now satisfy it!)
 alter table public.profiles add constraint profiles_role_check 
   check (role in ('admin', 'committee', 'devotee'));
 
--- 3. Set default role for new signups to 'devotee'
+-- 4. Set default role for new signups to 'devotee'
 alter table public.profiles alter column role set default 'devotee';
-
--- 4. Convert any legacy 'viewer' roles to 'devotee'
-update public.profiles set role = 'devotee' where role = 'viewer';
 
 -- 5. Helper function: Admin check
 create or replace function public.is_admin()
@@ -39,14 +40,12 @@ end;
 $$ language plpgsql security definer;
 
 -- 7. Profile RLS Policies:
--- Allow authenticated users to view profiles (so Admin can see list in Roles modal)
 drop policy if exists "Allow authenticated to view profiles" on public.profiles;
 drop policy if exists "Allow users to view own profile or admins to view all" on public.profiles;
 create policy "Allow authenticated to view profiles"
   on public.profiles for select
   using (true);
 
--- Allow only Admins to update profiles (promote/demote roles)
 drop policy if exists "Allow only admins to update profiles" on public.profiles;
 drop policy if exists "Allow admins to update profiles" on public.profiles;
 drop policy if exists "Allow update on profiles" on public.profiles;
