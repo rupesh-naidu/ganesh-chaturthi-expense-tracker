@@ -314,14 +314,19 @@ export function TransactionProvider({ children }) {
     const targetTx = transactions.find((t) => t.id === id);
 
     if (isSupabaseConfigured && supabase) {
-      const { error: deleteErr } = await supabase
+      const { data: deletedRows, error: deleteErr } = await supabase
         .from("transactions")
         .delete()
-        .eq("id", id);
+        .eq("id", id)
+        .select();
 
       if (deleteErr) {
         console.error("Supabase delete error:", deleteErr);
         throw new Error(deleteErr.message || "Database failed to delete transaction.");
+      }
+
+      if (!deletedRows || deletedRows.length === 0) {
+        throw new Error("Deletion failed: The transaction could not be deleted from the database. Please ensure the latest database trigger fix is applied in Supabase SQL Editor.");
       }
 
       setTransactions((prev) => prev.filter((t) => t.id !== id));
