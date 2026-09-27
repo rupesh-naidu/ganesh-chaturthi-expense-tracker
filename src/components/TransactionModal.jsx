@@ -1,4 +1,4 @@
-﻿import React, { useState, useEffect } from "react";
+import React, { useState, useEffect } from "react";
 import { useTransactions } from "../context/TransactionContext";
 import { formatINR } from "../utils/formatters";
 import { X, ArrowDownLeft, ArrowUpRight, AlertCircle, Loader2 } from "lucide-react";
@@ -94,7 +94,7 @@ export default function TransactionModal({ isOpen, onClose, transactionToEdit = 
       console.error("Save transaction error:", err);
       // User-friendly error mapping
       if (err.message && err.message.includes("row-level security")) {
-        setError("Unauthorized by Database: You must log in as an Admin via 'Admin Login' to record entries into Supabase.");
+        setError("Unauthorized: You must be logged in as an Admin or Committee member to record entries into Supabase.");
       } else {
         setError(err.message || "Failed to save transaction.");
       }
@@ -119,8 +119,8 @@ export default function TransactionModal({ isOpen, onClose, transactionToEdit = 
               </h2>
               <p className="text-xs text-gray-500 font-medium">
                 {isEditing
-                  ? "Update ledger entry details"
-                  : "Add donation or expense to community fund"}
+                  ? "Update transaction details"
+                  : "Add donation or expense entry"}
               </p>
             </div>
           </div>

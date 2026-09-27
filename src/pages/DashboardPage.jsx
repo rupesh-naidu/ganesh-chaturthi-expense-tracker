@@ -21,7 +21,7 @@ export default function DashboardPage() {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 bg-gradient-to-r from-amber-100/70 via-orange-100/60 to-amber-100/70 border border-amber-200/80 rounded-2xl px-4 py-2.5">
         <div className="flex items-center gap-2 text-xs font-bold text-orange-950">
           <span className="text-base">🚩</span>
-          <span>श्री गणेशाय नमः • Ganesh Chaturthi Celebration Ledger</span>
+          <span>శ్రీ గణేశాయ నమః • Ganesh Chaturthi Expense Tracker</span>
         </div>
         <div className="flex items-center gap-3 text-[11px] font-semibold text-orange-800">
           <button

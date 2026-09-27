@@ -65,7 +65,7 @@ export default function TransactionsPage() {
             </span>
           </h1>
           <p className="text-xs sm:text-sm text-gray-500 font-medium">
-            Complete digital ledger of donations collected and expenses incurred
+            Complete record of donations collected and expenses incurred
           </p>
         </div>
 

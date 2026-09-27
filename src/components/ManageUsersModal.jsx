@@ -132,7 +132,7 @@ export default function ManageUsersModal({ isOpen, onClose }) {
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 pt-1 text-[11px]">
               <div className="bg-white p-2 rounded-xl border border-amber-200">
                 <span className="font-bold text-orange-800 block">👑 ADMIN (You)</span>
-                Full ledger control + promote/demote powers.
+                Full tracker control + promote/demote powers.
               </div>
               <div className="bg-white p-2 rounded-xl border border-blue-200">
                 <span className="font-bold text-blue-800 block">🛡️ COMMITTEE</span>

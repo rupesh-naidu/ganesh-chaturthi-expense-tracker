@@ -41,7 +41,7 @@ export default function Navbar({ onOpenAddModal }) {
                   </span>
                 </div>
                 <p className="text-xs font-semibold text-orange-700/90 tracking-wide uppercase">
-                  Community Fund Ledger
+                  Expense Tracker
                 </p>
               </div>
             </Link>

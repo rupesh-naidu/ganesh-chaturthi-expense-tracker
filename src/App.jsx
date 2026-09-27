@@ -1,4 +1,4 @@
-﻿import React, { useState } from "react";
+import React, { useState } from "react";
 import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider } from "./context/AuthContext";
 import { TransactionProvider } from "./context/TransactionContext";
@@ -40,10 +40,10 @@ function AppContent() {
       <footer className="border-t border-amber-200/70 bg-white/60 py-6 text-center text-xs text-gray-500">
         <div className="max-w-5xl mx-auto px-4 space-y-1">
           <p className="font-semibold text-gray-700">
-            गणेश चतुर्थी २०२६ • उत्सव निधी व्यवस्थापन
+            వినాయక చవితి 2026 • Ganesh Chaturthi Expense Tracker
           </p>
           <p className="text-gray-400">
-            Production-Grade Community Ledger • Powered by React & Supabase
+            Expense Tracker • Powered by React & Supabase
           </p>
         </div>
       </footer>

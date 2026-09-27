@@ -1,4 +1,4 @@
-﻿import React, { useState } from "react";
+import React, { useState } from "react";
 import { useTransactions } from "../context/TransactionContext";
 import { formatINR } from "../utils/formatters";
 import { AlertTriangle, Trash2, Loader2 } from "lucide-react";
@@ -19,7 +19,7 @@ export default function DeleteConfirmModal({ isOpen, onClose, transaction }) {
     } catch (err) {
       console.error("Delete error:", err);
       if (err.message && err.message.includes("row-level security")) {
-        setError("Unauthorized: You must be logged in as an Admin to delete database records.");
+        setError("Unauthorized: You must be logged in as an Admin or Committee member to delete database records.");
       } else {
         setError(err.message || "Failed to delete transaction.");
       }

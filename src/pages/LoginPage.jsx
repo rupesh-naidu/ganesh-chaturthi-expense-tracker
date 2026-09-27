@@ -81,7 +81,7 @@ export default function LoginPage() {
         className="inline-flex items-center gap-1.5 text-xs font-bold text-gray-500 hover:text-orange-600 mb-6 transition-colors"
       >
         <ArrowLeft className="w-4 h-4" />
-        <span>Back to Public Ledger</span>
+        <span>Back to Dashboard</span>
       </Link>
 
       <div className="bg-white rounded-3xl border-2 border-amber-200/80 p-6 sm:p-8 shadow-festive-lg relative overflow-hidden">
@@ -96,7 +96,7 @@ export default function LoginPage() {
             GANESH CHATURTHI
           </h1>
           <p className="text-xs font-bold uppercase tracking-wider text-orange-700 mt-0.5">
-            Finance Tracker Authentication
+            Expense Tracker Authentication
           </p>
         </div>
 
